@@ -1,22 +1,26 @@
 package util;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+
+import vo.BoardVO;
 
 public class JDBCUtilHw09 {
 	
 	private static JDBCUtilHw09 instance = null;
 
-	private JDBCUtilHw09() {} 
+	private JDBCUtilHw09() {
+	} 
 	
 	public static JDBCUtilHw09 getInstance() {
 		if(instance == null) 
@@ -45,18 +49,17 @@ public class JDBCUtilHw09 {
 	}
 
 	
-	// executeUpdate() => update, delete, insert
-	public void update(String sql, List<Object> param) {
+	public void delete(String sql, BoardVO bv) {
 		 
+		int cnt = 0;
+		
 		try {
 			conn = DriverManager.getConnection(url, user, password);
 			pstmt = conn.prepareStatement(sql);
 			
-			for (int i=0; i<param.size(); i++) {
-				pstmt.setObject(i+1, param.get(i));
-			} 
+			pstmt.setBigDecimal(1, bv.getNo());
 			
-			int cnt = pstmt.executeUpdate();
+			cnt = pstmt.executeUpdate();
 			printResult(cnt);
 			
 		} catch (SQLException e) {
@@ -67,44 +70,149 @@ public class JDBCUtilHw09 {
 		} finally {
 			close(conn, stmt, pstmt, rs);
 		}
-		
+
 	}
-
-
-	// executeQuery() => select
-	public List<Map<String, Object>> selectList(String sql, List<Object> param) {
+	
+	public void update(String sql, BoardVO bv) {
+		 
+		int cnt = 0;
 		
-		List<Map<String, Object>> list = new ArrayList<Map<String,Object>>();
+		try {
+			conn = DriverManager.getConnection(url, user, password);
+			pstmt = conn.prepareStatement(sql);
+			
+			pstmt.setNString(1, bv.getTitle());
+			pstmt.setNString(2, bv.getWritter());
+			pstmt.setNString(3, bv.getContent());
+			pstmt.setBigDecimal(4, bv.getNo());
+			
+			cnt = pstmt.executeUpdate();
+			printResult(cnt);
+			
+		} catch (SQLException e) {
+//			e.printStackTrace();
+			System.out.println();
+			System.out.println("DB연결이 실패하거나, SQL문이 틀렸습니다.");
+			System.out.print("사유 : " + e.getMessage());
+		} finally {
+			close(conn, stmt, pstmt, rs);
+		}
+
+	}
+	
+	public void insert(String sql, BoardVO bv) {
+		 
+		int cnt = 0;
+		
+		try {
+			conn = DriverManager.getConnection(url, user, password);
+			pstmt = conn.prepareStatement(sql);
+			
+			pstmt.setNString(1, bv.getTitle());
+			pstmt.setNString(2, bv.getWritter());
+			pstmt.setNString(3, bv.getContent());
+			
+			cnt = pstmt.executeUpdate();
+			printResult(cnt);
+			
+		} catch (SQLException e) {
+			e.printStackTrace();
+//			System.out.println();
+//			System.out.println("DB연결이 실패하거나, SQL문이 틀렸습니다.");
+//			System.out.print("사유 : " + e.getMessage());
+		} finally {
+			close(conn, stmt, pstmt, rs);
+		}
+
+	}
+	
+	
+	public List<BoardVO> searchSelectList(String sql, BoardVO bv) {
+		
+		List<BoardVO> list = new ArrayList<BoardVO>();
 		
 		try {
 			conn = DriverManager.getConnection(url, user, password);
 			pstmt = conn.prepareStatement(sql);
 
-			for (int i=0; i<param.size(); i++) {
-				pstmt.setObject(i+1, param.get(i));
+			if (bv.getDate() != null) {
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd");
+				String date = bv.getDate().format(formatter);
+				pstmt.setNString(1, date);
+
+			} else if (bv.getWritter() != null) {
+				pstmt.setNString(1, bv.getWritter());
+			}  else if (bv.getTitle() != null) {
+				pstmt.setNString(1, bv.getTitle());
+			}  else if (bv.getContent() != null) {
+				pstmt.setNString(1, bv.getContent());
+			}
+			
+			rs = pstmt.executeQuery();
+			
+			while (rs.next()) {
+				
+				BigDecimal no = rs.getBigDecimal("BOARD_NO");
+				String title = rs.getNString("BOARD_TITLE");
+				String writer = rs.getNString("BOARD_WRITER");
+				Timestamp stamp =  rs.getTimestamp("BOARD_DATE");
+				LocalDateTime date = rs.getTimestamp("BOARD_DATE").toLocalDateTime();
+				String content = rs.getNString("BOARD_CONTENT");
+			
+				BoardVO boradVo = new BoardVO();
+				boradVo.setNo(no);
+				boradVo.setTitle(title);
+				boradVo.setWriter(writer);
+				boradVo.setDate(date);
+				boradVo.setContent(content);
+				
+				list.add(boradVo);
+			}
+			
+		} catch (SQLException e) {
+//			e.printStackTrace();
+			System.out.println();
+			System.out.println("DB연결이 실패하거나, SQL문이 틀렸습니다.");
+			System.out.print("사유 : " + e.getMessage());
+		} finally {
+			close(conn, stmt, pstmt, rs);
+		}
+		
+		return list;
+	}
+
+
+	// executeQuery() => select
+	public List<BoardVO> selectList(String sql, List<Object> page) {
+		
+		List<BoardVO> list = new ArrayList<BoardVO>();
+		
+		try {
+			conn = DriverManager.getConnection(url, user, password);
+			pstmt = conn.prepareStatement(sql);
+
+			for (int i=0; i<page.size(); i++) {
+				pstmt.setObject(i+1, page.get(i));
 			} 
 			
 			rs = pstmt.executeQuery();
 			
-			ResultSetMetaData rsmd = rs.getMetaData();
-			int columnCount = rsmd.getColumnCount();
-			
 			while (rs.next()) {
 				
-				Map<String, Object> row = new HashMap<String, Object>();
-				for (int i=1; i<=columnCount; i++) {
-					String key = rsmd.getColumnName(i);
-					Object value = "";
-					
-					if (rsmd.getColumnTypeName(i).equals("CLOB")) {
-						value = rs.getNString(i);
-					} else {
-						value = rs.getObject(i);
-					}
-					
-					row.put(key, value);
-				}
-				list.add(row);
+				BigDecimal no = rs.getBigDecimal("BOARD_NO");
+				String title = rs.getNString("BOARD_TITLE");
+				String writer = rs.getNString("BOARD_WRITER");
+				LocalDateTime date = rs.getTimestamp("BOARD_DATE").toLocalDateTime();
+				String content = rs.getNString("BOARD_CONTENT");
+			
+				BoardVO bv = new BoardVO();
+				bv.setNo(no);
+				bv.setTitle(title);
+				bv.setWriter(writer);
+				bv.setDate(date);
+				bv.setContent(content);
+				
+				list.add(bv);
 			}
 			
 		} catch (SQLException e) {
